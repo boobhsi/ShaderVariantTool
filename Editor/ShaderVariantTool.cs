@@ -757,16 +757,33 @@ namespace GfxQA.ShaderVariantTool
         
         private void OnVariantSortingChanged(MultiColumnListView variantTable)
         {
-            SortColumnDescriptions sortDescriptions = variantTable.sortColumnDescriptions;
+            var sorts = new SortColumnDescriptions
+            {
+                new SortColumnDescription(defaultVariantSortColumn - 1, SortDirection.Descending)
+            };
+            SortColumnDescriptions sortedColumns = variantTable.sortColumnDescriptions;
+            foreach (SortColumnDescription sortedColumn in sortedColumns)
+            {
+                int columnId = variantTable.columns.IndexOf(sortedColumn.column);
+                sorts.Add(new SortColumnDescription(columnId, sortedColumn.direction));
+            }
             VisualElement container = variantTable.Q("unity-content-container");
             List<VisualElement> children = container.Children().ToList();
 
-            foreach (SortColumnDescription sort in sortDescriptions)
+            foreach (SortColumnDescription sort in sorts)
             {
-                int columnId = variantTable.columns.IndexOf(sort.column);
-                children = sort.direction == SortDirection.Ascending
-                    ? children.OrderBy(child => GetCellValue(child, columnId)).ToList()
-                    : children.OrderByDescending(child => GetCellValue(child, columnId)).ToList();
+                if (sort.columnIndex <= 1)
+                {
+                    children = sort.direction == SortDirection.Ascending
+                        ? children.OrderBy(child => GetCellInt(child, sort.columnIndex)).ToList()
+                        : children.OrderByDescending(child => GetCellInt(child, sort.columnIndex)).ToList();
+                }
+                else
+                {
+                    children = sort.direction == SortDirection.Ascending
+                        ? children.OrderBy(child => GetCellString(child, sort.columnIndex)).ToList()
+                        : children.OrderByDescending(child => GetCellString(child, sort.columnIndex)).ToList();
+                }
             }
 
             container.Clear();
@@ -778,10 +795,16 @@ namespace GfxQA.ShaderVariantTool
             variantTable.MarkDirtyRepaint();
             return;
 
-            string GetCellValue(VisualElement child, int columnId)
+            string GetCellString(VisualElement child, int columnId)
             {
                 var label = child.ElementAt(columnId).Q<Label>();
                 return label != null ? label.text : string.Empty;
+            }
+
+            int GetCellInt(VisualElement child, int columnId)
+            {
+                var label = child.ElementAt(columnId).Q<Label>();
+                return label != null ? int.Parse(label.text) : -1;
             }
         }
 
