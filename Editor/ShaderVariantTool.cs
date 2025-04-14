@@ -738,18 +738,9 @@ namespace GfxQA.ShaderVariantTool
                         };
                     }
 
-                    //Set default sorting state
-                    // var sort = variantTable.sortColumnDescriptions;
-                    // if(sort.Count == 0)
-                    // {
-                    //     SortColumnDescription defaultDesc = new SortColumnDescription(defaultVariantSortColumn,SortDirection.Descending);
-                    //     sort.Add(defaultDesc);
-
-                    //     OnVariantSortingChanged(variantTable);
-                    // }
-
+                    variantTable.sortingEnabled = true;
                     //Register sorting event
-                    //variantTable.columnSortingChanged += () => OnVariantSortingChanged(variantTable);
+                    variantTable.columnSortingChanged += () => OnVariantSortingChanged(variantTable);
                 }
 
                 //Add to list
@@ -764,73 +755,35 @@ namespace GfxQA.ShaderVariantTool
             return expandedVariantElements[matchingExpandedIndex];        
         }
         
-        /*
         private void OnVariantSortingChanged(MultiColumnListView variantTable)
         {
-            var sort = variantTable.sortColumnDescriptions;
-
+            SortColumnDescriptions sortDescriptions = variantTable.sortColumnDescriptions;
             VisualElement container = variantTable.Q("unity-content-container");
-            
-            for(int i=0; i<sort.Count; i++)
+            List<VisualElement> children = container.Children().ToList();
+
+            foreach (SortColumnDescription sort in sortDescriptions)
             {
-                int columnId = variantTable.columns.IndexOf(sort[i].column);
-                container.Sort(delegate (VisualElement e1, VisualElement e2)
-                {
-                    VisualElement e1ColumnCell = e1.Children().ElementAt(columnId);
-                    Label e1Label = e1.Q<Label>();
-
-                    VisualElement e2ColumnCell = e2.Children().ElementAt(columnId);
-                    Label e2Label = e2.Q<Label>();
-
-                    if(sort[i].direction == SortDirection.Ascending)
-                    {
-                        return e1Label.text.CompareTo(e2Label.text);
-                    }
-                    else
-                    {
-                        return e2Label.text.CompareTo(e1Label.text);
-                    }
-                });
+                int columnId = variantTable.columns.IndexOf(sort.column);
+                children = sort.direction == SortDirection.Ascending
+                    ? children.OrderBy(child => GetCellValue(child, columnId)).ToList()
+                    : children.OrderByDescending(child => GetCellValue(child, columnId)).ToList();
             }
 
+            container.Clear();
+            foreach (VisualElement child in children)
+            {
+                container.Add(child);
+            }
 
-            //variantTable.MarkDirtyRepaint();//.Rebuild();
+            variantTable.MarkDirtyRepaint();
+            return;
 
-            // //Sort based on sorting state
-            // for(int i=0; i<sort.Count; i++)
-            // {
-            //     int columnId = variantTable.columns.IndexOf(sort[i].column);
-
-            //     if(columnId > 0) //First column is shader name, so sort by Alphabetical
-            //     {
-            //         //sort numbers
-            //         if(sort[i].direction == SortDirection.Ascending)
-            //         {
-            //             shaderRows = shaderRows.OrderBy(o=>float.Parse(o[columnId])).ToList();
-            //         }
-            //         else
-            //         {
-            //             shaderRows = shaderRows.OrderByDescending(o=>float.Parse(o[columnId])).ToList();
-            //         }
-            //     }
-            //     else
-            //     {
-            //         //sort string Alphabetical Order
-            //         if(sort[i].direction == SortDirection.Ascending)
-            //         {
-            //             shaderRows = shaderRows.OrderBy(o=>o[columnId]).ToList();
-            //         }
-            //         else
-            //         {
-            //             shaderRows = shaderRows.OrderByDescending(o=>o[columnId]).ToList();
-            //         }
-            //     }
-
-            // }
-            
-            // SetShaderRootItems();
+            string GetCellValue(VisualElement child, int columnId)
+            {
+                var label = child.ElementAt(columnId).Q<Label>();
+                return label != null ? label.text : string.Empty;
+            }
         }
-        */
 
 #endregion
     
