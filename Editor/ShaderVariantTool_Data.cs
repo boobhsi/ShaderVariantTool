@@ -5,6 +5,7 @@ using UnityEngine.Rendering;
 using UnityEditor;
 using System.Linq;
 using System;
+using System.IO;
 using System.Text.RegularExpressions;
 
 namespace GfxQA.ShaderVariantTool
@@ -148,6 +149,7 @@ namespace GfxQA.ShaderVariantTool
                 var shader = Shader.Find(name);
                 var shaderData = ShaderUtil.GetShaderData(shader);
                 var subShader = shaderData.GetSubshader(0);
+                var shaderPath = AssetDatabase.GetAssetPath(shader);
                 for (int i = 0; i < subShader.PassCount; i++)
                 {
                     //Get source code
@@ -160,12 +162,13 @@ namespace GfxQA.ShaderVariantTool
                     //Read #include_with_pragmas lines as declare types are in seperate hlsl
                     string pattern = @"#include_with_pragmas\s""(.*)""";
                     MatchCollection matches = Regex.Matches(shaderCode, pattern);
+                    string shaderDirectoryPath = Path.GetDirectoryName(shaderPath);
                     List<Match> matchesList = matches.ToList();
                     foreach(Match m in matchesList)
                     {
                         //Read hlsl code and find the #pragma lines
                         string hlslPath = m.Groups[1].Value;
-                        string hlslCode = System.IO.File.ReadAllText(hlslPath);
+                        string hlslCode = ReadFromAnyPath(shaderDirectoryPath, hlslPath);
                         GetDirectPragmaKeywordType(hlslCode, ref keywordDeclareType);
                     }
                 }
@@ -176,6 +179,61 @@ namespace GfxQA.ShaderVariantTool
                     string keyword = item.shaderKeywordName;
                     item.shaderKeywordDeclareType = keywordDeclareType.FirstOrDefault(x => x.Key.Contains(keyword)).Value;
                 }
+            }
+        }
+
+        private string ReadFromAnyPath(string sourceDirectory, string path)
+        {
+            if (TryReadRelativePath(path, out string content))
+            {
+                return content;
+            }
+
+            if (TryReadAbsolutePath(path, out content))
+            {
+                return content;
+            }
+
+            if (TryReadUPMPackagePath(path, out content))
+            {
+                return content;
+            }
+
+            Debug.LogError($"ShaderVariantTool error. Included file {path} is not found.");
+            return null;
+
+            bool TryReadRelativePath(string filePath, out string contentRelativePath)
+            {
+                string fullPath = Path.Combine(sourceDirectory, filePath);
+                return TryReadAbsolutePath(fullPath, out contentRelativePath);
+            }
+
+            bool TryReadAbsolutePath(string filePath, out string contentAbsolutePath)
+            {
+                if (File.Exists(filePath))
+                {
+                    contentAbsolutePath = File.ReadAllText(filePath);
+                    return true;
+                }
+
+                contentAbsolutePath = null;
+                return false;
+            }
+
+            bool TryReadUPMPackagePath(string filePath, out string contentUPMPackage)
+            {
+                const string pattern = @"Packages\/(.*)\/(.*)";
+                MatchCollection matches = Regex.Matches(filePath, pattern);
+                if (matches.Count > 0)
+                {
+                    string packageName = matches[0].Groups[1].Value;
+                    string packageRoot = PackagePathResolver.GetPackageAbsolutePath(packageName);
+                    string fullPath = Path.Combine(packageRoot, matches[0].Groups[2].Value);
+                    return TryReadAbsolutePath(fullPath, out contentUPMPackage);
+                }
+
+                contentUPMPackage = null;
+                return false;
             }
         }
 
